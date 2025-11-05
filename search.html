@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search & Download CV</title>
+  <style>
+    body { font-family: Poppins, Arial, sans-serif; background:#fff; text-align:center; padding:50px; }
+    h1 { color:#222; margin-bottom:20px; }
+    input { padding:10px; width:250px; font-size:16px; border:1px solid #ccc; border-radius:6px; }
+    button { padding:10px 20px; font-size:16px; background:#007bff; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+    button:hover { background:#0056b3; }
+    a.download-link { display:block; margin-top:20px; font-size:18px; color:#28a745; text-decoration:none; }
+    .back-link { margin-top:30px; display:inline-block; color:#555; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <h1>Search CV by Iqama Number</h1>
+  <input type="text" id="searchIqama" placeholder="Enter Iqama Number">
+  <button id="searchBtn">Search</button>
+  <div id="result"></div>
+  <a class="back-link" href="https://linux-aios.github.io/Care-Pro-CV-generator/">← Back to CV Generator</a>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAhcU8StPFajp6P1qOa3Qe4avdlEPpueRQ",
+      authDomain: "carepro-cv.firebaseapp.com",
+      projectId: "carepro-cv",
+      storageBucket: "carepro-cv.appspot.com",
+      messagingSenderId: "494275048602",
+      appId: "1:494275048602:web:19735a3d6d80ab6430db23"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+
+    document.getElementById("searchBtn").addEventListener("click", async () => {
+      const iqama = document.getElementById("searchIqama").value.trim();
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "";
+
+      if (!iqama) {
+        alert("Please enter Iqama number!");
+        return;
+      }
+
+      try {
+        const fileRef = ref(storage, `CVs/${iqama}.pdf`);
+        const url = await getDownloadURL(fileRef);
+        resultDiv.innerHTML = `<a class="download-link" href="${url}" target="_blank">📄 Download CV for ${iqama}</a>`;
+      } catch (error) {
+        resultDiv.innerHTML = `<p style="color:red;">❌ CV not found for Iqama: ${iqama}</p>`;
+        console.error(error);
+      }
+    });
+  </script>
+</body>
+</html>
