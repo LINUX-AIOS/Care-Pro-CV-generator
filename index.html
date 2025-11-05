@@ -2,14 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Faizan CV Generator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<title>Care-Pro CV Generator</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js"></script>
+
+<!-- PDF and Canvas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
-  .form-container, .cv-container { 
-    width: 210mm; padding: 20px; margin: 20px auto; background: #fff; 
-    box-shadow: 0 0 5px rgba(0,0,0,0.3); 
+  .form-container, .cv-container {
+    width: 210mm; padding: 20px; margin: 20px auto; background: #fff;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
   }
   input, textarea { width: 100%; padding: 8px; margin: 8px 0; }
   .btn { margin-top: 10px; padding: 10px 15px; background: #333; color: #fff; border: none; cursor: pointer; }
@@ -24,7 +31,6 @@
 </head>
 <body>
 
-<!-- FORM SECTION -->
 <div class="form-container">
   <h2>Care-Pro CV Generator by Faizan</h2>
   <input type="file" id="photoInput" accept="image/*">
@@ -34,14 +40,13 @@
   <input type="text" id="emailInput" placeholder="Email">
   <input type="text" id="addressInput" placeholder="Address">
   <input type="text" id="jobInput" placeholder="Present Job">
-  <textarea id="summaryInput" placeholder="Professional Summary (multi-line supported)"></textarea>
+  <textarea id="summaryInput" placeholder="Professional Summary"></textarea>
   <textarea id="educationInput" placeholder="Education (one per line)"></textarea>
   <textarea id="experienceInput" placeholder="Experience (one per line)"></textarea>
   <textarea id="skillsInput" placeholder="Skills (one per line)"></textarea>
   <button class="btn" onclick="generateCV()">Generate CV</button>
 </div>
 
-<!-- CV TEMPLATE -->
 <div class="cv-container" id="cv" style="display:none;">
   <div class="header">
     <img src="https://via.placeholder.com/120" class="photo" id="photo">
@@ -54,88 +59,82 @@
       <div><b>Present Job:</b> <span id="job"></span></div>
     </div>
   </div>
-
-  <h2>PROFESSIONAL SUMMARY</h2>
-  <p id="summary"></p>
-
-  <h2>EDUCATION</h2>
-  <ul id="education"></ul>
-
-  <h2>WORK EXPERIENCE</h2>
-  <ul id="experience"></ul>
-
-  <h2>SKILLS</h2>
-  <ul id="skills"></ul>
+  <h2>PROFESSIONAL SUMMARY</h2><p id="summary"></p>
+  <h2>EDUCATION</h2><ul id="education"></ul>
+  <h2>WORK EXPERIENCE</h2><ul id="experience"></ul>
+  <h2>SKILLS</h2><ul id="skills"></ul>
 </div>
 
-<button class="btn" id="downloadBtn" style="display:none;" onclick="downloadPDF()">Download as PDF</button>
+<button class="btn" id="downloadBtn" style="display:none;" onclick="downloadPDF()">Download & Upload</button>
 
 <script>
-function generateCV() {
-  document.getElementById("cv").style.display = "block";
-  document.getElementById("downloadBtn").style.display = "inline-block";
+  // === Firebase Config ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyAhcU8StPFajp6P1qOa3Qe4avdlEPpueRQ",
+    authDomain: "carepro-cv.firebaseapp.com",
+    projectId: "carepro-cv",
+    storageBucket: "carepro-cv.firebasestorage.app",
+    messagingSenderId: "494275048602",
+    appId: "1:494275048602:web:19735a3d6d80ab6430db23"
+  };
 
-  // Photo
-  const photoFile = document.getElementById("photoInput").files[0];
-  if (photoFile) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      document.getElementById("photo").src = e.target.result;
-    };
-    reader.readAsDataURL(photoFile);
+  const app = firebase.initializeApp(firebaseConfig);
+  const storage = firebase.storage();
+
+  function generateCV() {
+    document.getElementById("cv").style.display = "block";
+    document.getElementById("downloadBtn").style.display = "inline-block";
+
+    const photoFile = document.getElementById("photoInput").files[0];
+    if (photoFile) {
+      const reader = new FileReader();
+      reader.onload = e => document.getElementById("photo").src = e.target.result;
+      reader.readAsDataURL(photoFile);
+    }
+
+    document.getElementById("name").innerText = document.getElementById("nameInput").value;
+    document.getElementById("iqama").innerText = document.getElementById("iqamaInput").value;
+    document.getElementById("phone").innerText = document.getElementById("phoneInput").value;
+    document.getElementById("email").innerText = document.getElementById("emailInput").value;
+    document.getElementById("address").innerText = document.getElementById("addressInput").value;
+    document.getElementById("job").innerText = document.getElementById("jobInput").value;
+    document.getElementById("summary").innerText = document.getElementById("summaryInput").value;
+    document.getElementById("education").innerHTML = listify("educationInput");
+    document.getElementById("experience").innerHTML = listify("experienceInput");
+    document.getElementById("skills").innerHTML = listify("skillsInput");
   }
 
-  // Basic Info
-  document.getElementById("name").innerText = document.getElementById("nameInput").value;
-  document.getElementById("iqama").innerText = document.getElementById("iqamaInput").value;
-  document.getElementById("phone").innerText = document.getElementById("phoneInput").value;
-  document.getElementById("email").innerText = document.getElementById("emailInput").value;
-  document.getElementById("address").innerText = document.getElementById("addressInput").value;
-  document.getElementById("job").innerText = document.getElementById("jobInput").value;
-  document.getElementById("summary").innerHTML = document.getElementById("summaryInput").value;
+  function listify(id) {
+    return document.getElementById(id).value
+      .split("\n")
+      .filter(e => e.trim() !== "")
+      .map(e => `<li>${e.trim()}</li>`)
+      .join("");
+  }
 
-  // Lists
-  document.getElementById("education").innerHTML = listify("educationInput");
-  document.getElementById("experience").innerHTML = listify("experienceInput");
-  document.getElementById("skills").innerHTML = listify("skillsInput");
-}
+  async function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const cv = document.getElementById("cv");
+    const iqama = document.getElementById("iqama").innerText.trim() || "CV";
 
-function listify(id) {
-  return document.getElementById(id).value
-    .split("\n")
-    .filter(e => e.trim() !== "")
-    .map(e => "<li>"+e.trim()+"</li>")
-    .join("");
-}
+    const canvas = await html2canvas(cv, { scale: 2 });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
 
-async function downloadPDF() {
-  const iqama = document.getElementById("iqama").innerText.trim() || "CV";
-  const cv = document.getElementById("cv");
-  
-  // Wait a bit for rendering
-  await new Promise(r => setTimeout(r, 300));
+    const pdfBlob = pdf.output("blob");
 
-  // Convert to canvas
-  const canvas = await html2canvas(cv, { scale: 2, useCORS: true });
-  const imgData = canvas.toDataURL("image/png");
+    // Save locally
+    pdf.save(iqama + ".pdf");
 
-  // Access jsPDF safely
-  const pdfLib = window.jspdf;
-  const pdf = new pdfLib.jsPDF("p", "mm", "a4");
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    // Upload to Firebase Storage
+    const storageRef = storage.ref("cv/" + iqama + ".pdf");
+    await storageRef.put(pdfBlob);
 
-  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-  pdf.save(iqama + ".pdf");
-
-  // Optional upload simulation
-  uploadPDF(imgData, iqama);
-}
-
-function uploadPDF(base64Data, iqama) {
-  console.log("Uploading PDF for", iqama);
-  // You can later replace this with actual upload logic
-}
+    alert("✅ CV uploaded successfully for Iqama: " + iqama);
+  }
 </script>
 
 </body>
