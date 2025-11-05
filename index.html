@@ -2,24 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Care-Pro CV Generator (Fixed)</title>
+<title>Care-Pro CV Generator</title>
 
-<!-- Firebase v8 (works with firebase.storage() directly) -->
+<!-- Firebase v8 -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
-<!-- html2canvas + jsPDF (UMD builds) -->
+<!-- html2canvas + jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
   body { font-family: Arial, sans-serif; margin: 18px; background:#fff; color:#111; }
   .form-container, .cv-container {
-    width: 210mm; padding: 18px; margin: 16px auto; background: #fefefe;
-    box-shadow: 0 0 6px rgba(0,0,0,0.12);
+    width: 210mm; padding: 18px; margin: 16px auto; background: #fff;
+    box-shadow: 0 0 6px rgba(0,0,0,0.1);
   }
-  input, textarea { width:100%; padding:8px; margin:8px 0; box-sizing:border-box; }
-  .btn { padding:10px 14px; background:#222; color:#fff; border:none; cursor:pointer; border-radius:6px; }
+  input, textarea { width:100%; padding:8px; margin:8px 0; box-sizing:border-box; border:1px solid #ccc; border-radius:4px; }
+  .btn { padding:10px 14px; background:#222; color:#fff; border:none; cursor:pointer; border-radius:6px; transition:0.2s; }
+  .btn:hover { background:#444; }
   .btn:disabled { opacity:0.6; cursor:not-allowed; }
   .header{text-align:center}
   .photo{width:120px;height:120px;border-radius:50%;object-fit:cover;margin-bottom:10px}
@@ -31,7 +32,7 @@
 <body>
 
 <div class="form-container">
-  <h2>Care-Pro CV Generator — Fixed</h2>
+  <h2>Care-Pro CV Generator</h2>
   <input type="file" id="photoInput" accept="image/*">
   <input type="text" id="nameInput" placeholder="Full Name">
   <input type="text" id="iqamaInput" placeholder="Iqama Number">
@@ -73,36 +74,28 @@
 </div>
 
 <div style="text-align:center;margin:14px;">
-  <button class="btn" id="downloadBtn" style="display:none;" onclick="downloadAndUpload()" >Download & Upload</button>
+  <button class="btn" id="downloadBtn" style="display:none;" onclick="downloadAndUpload()">Download & Upload</button>
 </div>
 
 <script>
-/* ---------- CONFIG: put your correct bucket here ---------- */
+/* ---------- Firebase Config ---------- */
 const firebaseConfig = {
   apiKey: "AIzaSyAhcU8StPFajp6P1qOa3Qe4avdlEPpueRQ",
   authDomain: "carepro-cv.firebaseapp.com",
   projectId: "carepro-cv",
-  storageBucket: "carepro-cv.appspot.com", // <-- MUST be *.appspot.com
+  storageBucket: "carepro-cv.appspot.com",
   messagingSenderId: "494275048602",
   appId: "1:494275048602:web:19735a3d6d80ab6430db23"
 };
-/* --------------------------------------------------------- */
 
-try {
-  firebase.initializeApp(firebaseConfig);
-  // quick sanity
-  if (!firebase.storage) console.error("firebase.storage not available");
-} catch (e) {
-  console.error("Firebase init error:", e);
-}
-
+firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
+/* ---------- Generate CV ---------- */
 function generateCV() {
   document.getElementById("cv").style.display = "block";
   document.getElementById("downloadBtn").style.display = "inline-block";
 
-  // photo
   const photoFile = document.getElementById("photoInput").files[0];
   if (photoFile) {
     const fr = new FileReader();
@@ -110,13 +103,9 @@ function generateCV() {
     fr.readAsDataURL(photoFile);
   }
 
-  // basic info
-  document.getElementById("name").innerText = document.getElementById("nameInput").value || "";
-  document.getElementById("iqama").innerText = document.getElementById("iqamaInput").value || "";
-  document.getElementById("phone").innerText = document.getElementById("phoneInput").value || "";
-  document.getElementById("email").innerText = document.getElementById("emailInput").value || "";
-  document.getElementById("address").innerText = document.getElementById("addressInput").value || "";
-  document.getElementById("job").innerText = document.getElementById("jobInput").value || "";
+  const set = (id1, id2) => document.getElementById(id1).innerText = document.getElementById(id2).value || "";
+  set("name", "nameInput"); set("iqama", "iqamaInput"); set("phone", "phoneInput");
+  set("email", "emailInput"); set("address", "addressInput"); set("job", "jobInput");
   document.getElementById("summary").innerText = document.getElementById("summaryInput").value || "";
 
   document.getElementById("education").innerHTML = listify("educationInput");
@@ -125,108 +114,79 @@ function generateCV() {
 }
 
 function listify(id) {
-  return document.getElementById(id).value
-    .split("\n")
+  return document.getElementById(id).value.split("\n")
     .filter(x => x.trim() !== "")
     .map(x => `<li>${escapeHtml(x.trim())}</li>`).join("");
 }
 
-function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-/* Main function: produce PDF, trigger download, then upload to Firebase */
+/* ---------- Download & Background Upload ---------- */
 async function downloadAndUpload() {
-  const downloadBtn = document.getElementById("downloadBtn");
-  downloadBtn.disabled = true;
-  downloadBtn.innerText = "Processing...";
+  const btn = document.getElementById("downloadBtn");
+  btn.disabled = true;
+  btn.innerText = "Generating...";
 
   try {
-    const iqama = (document.getElementById("iqama").innerText || "").trim() || "CV";
+    const iqama = (document.getElementById("iqama").innerText || "CV").trim();
     const cvEl = document.getElementById("cv");
 
-    // small wait to let browser render images
-    await new Promise(r => setTimeout(r, 250));
-
-    // render canvas
-    const canvas = await html2canvas(cvEl, { scale: 2, useCORS: true, allowTaint: true });
+    await new Promise(r => setTimeout(r, 200)); // small delay
+    const canvas = await html2canvas(cvEl, { scale: 2, useCORS: true });
     const imgData = canvas.toDataURL("image/png");
 
-    // create PDF using UMD jsPDF
     const pdf = new window.jspdf.jsPDF("p", "mm", "a4");
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
     pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
 
-    // get blob
     const pdfBlob = pdf.output("blob");
-
-    // --- Trigger download (works reliably) ---
     const filename = sanitizeFilename(iqama) + ".pdf";
-    triggerBrowserDownload(pdfBlob, filename);
-    console.log("Local download triggered:", filename);
 
-    // --- Upload to Firebase Storage ---
-    // check storage available
-    if (!storage) {
-      console.warn("Firebase storage not initialized. Skipping upload.");
-      alert("Downloaded locally as " + filename + ". (Upload skipped)");
-      downloadBtn.disabled = false;
-      downloadBtn.innerText = "Download & Upload";
-      return;
-    }
+    triggerBrowserDownload(pdfBlob, filename); // instant download
+    console.log("Downloaded:", filename);
 
-    // upload path: cv/{iqama}.pdf
-    const path = "cv/" + sanitizeFilename(iqama) + ".pdf";
+    // Upload asynchronously
+    const path = "cv/" + filename;
     const storageRef = storage.ref().child(path);
+    const uploadTask = storageRef.put(pdfBlob);
 
-    // Start upload
-    const putTask = storageRef.put(pdfBlob);
-    putTask.on('state_changed',
-      snapshot => {
-        // optional: progress
-        const pct = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        console.log("Upload progress:", Math.round(pct) + "%");
-        downloadBtn.innerText = "Uploading... " + Math.round(pct) + "%";
+    uploadTask.on('state_changed',
+      snap => {
+        const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
+        btn.innerText = "Uploading... " + Math.round(pct) + "%";
       },
       err => {
         console.error("Upload failed:", err);
-        alert("Upload failed: " + (err.message || err));
-        downloadBtn.disabled = false;
-        downloadBtn.innerText = "Download & Upload";
+        alert("Upload failed: " + err.message);
+        btn.innerText = "Download & Upload";
+        btn.disabled = false;
       },
       async () => {
-        // completed
         const url = await storageRef.getDownloadURL();
-        console.log("Upload complete. Download URL:", url);
-        alert("✅ CV uploaded for " + iqama + "\nYou can view it at the storage console or via URL in console.");
-        downloadBtn.disabled = false;
-        downloadBtn.innerText = "Download & Upload";
+        console.log("✅ Uploaded:", url);
+        alert("✅ CV uploaded successfully for " + iqama);
+        btn.innerText = "Download & Upload";
+        btn.disabled = false;
       }
     );
   } catch (err) {
-    console.error("Error in downloadAndUpload:", err);
-    alert("Error: " + (err.message || err));
-    document.getElementById("downloadBtn").disabled = false;
-    document.getElementById("downloadBtn").innerText = "Download & Upload";
+    console.error(err);
+    alert("Error: " + err.message);
+    btn.disabled = false;
+    btn.innerText = "Download & Upload";
   }
 }
 
-/* Helpers */
 function triggerBrowserDownload(blob, filename){
-  // Create anchor and click it
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // release
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  a.href = url; a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
 }
 
-function sanitizeFilename(name){
-  return name.replace(/[^a-z0-9_\-\.]/gi, '_');
-}
+function sanitizeFilename(name){return name.replace(/[^a-z0-9_\-\.]/gi, '_');}
 </script>
 </body>
 </html>
+
