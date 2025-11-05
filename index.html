@@ -27,6 +27,24 @@
   h1{margin:4px 0}
   ul{list-style:none;padding-left:0;margin:6px 0}
   p, li { white-space: pre-wrap; }
+
+  /* Background area (for base64 background) */
+  #cv {
+    position: relative;
+    overflow: hidden;
+  }
+  #cv-bg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0.15; /* adjust transparency */
+    z-index: 0;
+  }
+  .cv-content {
+    position: relative;
+    z-index: 1;
+  }
 </style>
 </head>
 <body>
@@ -44,33 +62,39 @@
   <textarea id="educationInput" placeholder="Education (one per line)"></textarea>
   <textarea id="experienceInput" placeholder="Experience (one per line)"></textarea>
   <textarea id="skillsInput" placeholder="Skills (one per line)"></textarea>
+
   <button class="btn" onclick="generateCV()">Generate CV</button>
 </div>
 
 <div class="cv-container" id="cv" style="display:none;">
-  <div class="header">
-    <img id="photo" class="photo" src="https://via.placeholder.com/120" alt="photo">
-    <h1 id="name"></h1>
-    <div class="contact">
-      <div><b>Iqama No:</b> <span id="iqama"></span></div>
-      <div><b>Phone:</b> <span id="phone"></span></div>
-      <div><b>Email:</b> <span id="email"></span></div>
-      <div><b>Address:</b> <span id="address"></span></div>
-      <div><b>Present Job:</b> <span id="job"></span></div>
+  <!-- Base64 background placeholder -->
+  <img id="cv-bg" src="" alt="Background" />
+
+  <div class="cv-content">
+    <div class="header">
+      <img id="photo" class="photo" src="https://via.placeholder.com/120" alt="photo">
+      <h1 id="name"></h1>
+      <div class="contact">
+        <div><b>Iqama No:</b> <span id="iqama"></span></div>
+        <div><b>Phone:</b> <span id="phone"></span></div>
+        <div><b>Email:</b> <span id="email"></span></div>
+        <div><b>Address:</b> <span id="address"></span></div>
+        <div><b>Present Job:</b> <span id="job"></span></div>
+      </div>
     </div>
+
+    <h3>PROFESSIONAL SUMMARY</h3>
+    <p id="summary"></p>
+
+    <h3>EDUCATION</h3>
+    <ul id="education"></ul>
+
+    <h3>WORK EXPERIENCE</h3>
+    <ul id="experience"></ul>
+
+    <h3>SKILLS</h3>
+    <ul id="skills"></ul>
   </div>
-
-  <h3>PROFESSIONAL SUMMARY</h3>
-  <p id="summary"></p>
-
-  <h3>EDUCATION</h3>
-  <ul id="education"></ul>
-
-  <h3>WORK EXPERIENCE</h3>
-  <ul id="experience"></ul>
-
-  <h3>SKILLS</h3>
-  <ul id="skills"></ul>
 </div>
 
 <div style="text-align:center;margin:14px;">
@@ -87,7 +111,6 @@ const firebaseConfig = {
   messagingSenderId: "494275048602",
   appId: "1:494275048602:web:19735a3d6d80ab6430db23"
 };
-
 firebase.initializeApp(firebaseConfig);
 const storage = firebase.storage();
 
@@ -103,6 +126,7 @@ function generateCV() {
     fr.readAsDataURL(photoFile);
   }
 
+  // Fill text fields
   const set = (id1, id2) => document.getElementById(id1).innerText = document.getElementById(id2).value || "";
   set("name", "nameInput"); set("iqama", "iqamaInput"); set("phone", "phoneInput");
   set("email", "emailInput"); set("address", "addressInput"); set("job", "jobInput");
@@ -111,6 +135,9 @@ function generateCV() {
   document.getElementById("education").innerHTML = listify("educationInput");
   document.getElementById("experience").innerHTML = listify("experienceInput");
   document.getElementById("skills").innerHTML = listify("skillsInput");
+
+  // 🔹 Optional: Add your base64 background here later
+  // Example: document.getElementById("cv-bg").src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...";
 }
 
 function listify(id) {
@@ -121,7 +148,7 @@ function listify(id) {
 
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-/* ---------- Download & Background Upload ---------- */
+/* ---------- Download & Upload ---------- */
 async function downloadAndUpload() {
   const btn = document.getElementById("downloadBtn");
   btn.disabled = true;
@@ -131,7 +158,7 @@ async function downloadAndUpload() {
     const iqama = (document.getElementById("iqama").innerText || "CV").trim();
     const cvEl = document.getElementById("cv");
 
-    await new Promise(r => setTimeout(r, 200)); // small delay
+    await new Promise(r => setTimeout(r, 200));
     const canvas = await html2canvas(cvEl, { scale: 2, useCORS: true });
     const imgData = canvas.toDataURL("image/png");
 
@@ -142,9 +169,7 @@ async function downloadAndUpload() {
 
     const pdfBlob = pdf.output("blob");
     const filename = sanitizeFilename(iqama) + ".pdf";
-
-    triggerBrowserDownload(pdfBlob, filename); // instant download
-    console.log("Downloaded:", filename);
+    triggerBrowserDownload(pdfBlob, filename);
 
     // Upload asynchronously
     const path = "cv/" + filename;
@@ -189,4 +214,3 @@ function sanitizeFilename(name){return name.replace(/[^a-z0-9_\-\.]/gi, '_');}
 </script>
 </body>
 </html>
-
