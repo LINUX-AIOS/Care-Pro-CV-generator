@@ -13,10 +13,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+  body { font-family: Arial, sans-serif; margin: 20px; background: #fff; }
   .form-container, .cv-container {
     width: 210mm; padding: 20px; margin: 20px auto; background: #fff;
-    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
   }
   input, textarea { width: 100%; padding: 8px; margin: 8px 0; }
   .btn { margin-top: 10px; padding: 10px 15px; background: #333; color: #fff; border: none; cursor: pointer; }
@@ -73,12 +73,12 @@
     apiKey: "AIzaSyAhcU8StPFajp6P1qOa3Qe4avdlEPpueRQ",
     authDomain: "carepro-cv.firebaseapp.com",
     projectId: "carepro-cv",
-    storageBucket: "carepro-cv.firebasestorage.app",
+    storageBucket: "carepro-cv.appspot.com", // ✅ fixed bucket
     messagingSenderId: "494275048602",
     appId: "1:494275048602:web:19735a3d6d80ab6430db23"
   };
 
-  const app = firebase.initializeApp(firebaseConfig);
+  firebase.initializeApp(firebaseConfig);
   const storage = firebase.storage();
 
   function generateCV() {
