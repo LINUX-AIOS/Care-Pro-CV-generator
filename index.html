@@ -1,38 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Care-Pro CV Generator</title>
+<meta charset="utf-8" />
+<title>Care-Pro CV Generator (Fixed)</title>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js"></script>
+<!-- Firebase v8 (works with firebase.storage() directly) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 
-<!-- PDF and Canvas -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- html2canvas + jsPDF (UMD builds) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; background: #fff; }
+  body { font-family: Arial, sans-serif; margin: 18px; background:#fff; color:#111; }
   .form-container, .cv-container {
-    width: 210mm; padding: 20px; margin: 20px auto; background: #fff;
-    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    width: 210mm; padding: 18px; margin: 16px auto; background: #fefefe;
+    box-shadow: 0 0 6px rgba(0,0,0,0.12);
   }
-  input, textarea { width: 100%; padding: 8px; margin: 8px 0; }
-  .btn { margin-top: 10px; padding: 10px 15px; background: #333; color: #fff; border: none; cursor: pointer; }
-  .header { text-align: center; }
-  .photo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; }
-  h1 { margin: 5px 0; font-size: 28px; }
-  .contact { font-size: 14px; margin-bottom: 20px; }
-  h2 { background: #eee; padding: 5px; font-size: 18px; margin-top: 20px; }
-  ul { list-style-type: none; padding-left: 0; margin: 5px 0 10px 0; }
+  input, textarea { width:100%; padding:8px; margin:8px 0; box-sizing:border-box; }
+  .btn { padding:10px 14px; background:#222; color:#fff; border:none; cursor:pointer; border-radius:6px; }
+  .btn:disabled { opacity:0.6; cursor:not-allowed; }
+  .header{text-align:center}
+  .photo{width:120px;height:120px;border-radius:50%;object-fit:cover;margin-bottom:10px}
+  h1{margin:4px 0}
+  ul{list-style:none;padding-left:0;margin:6px 0}
   p, li { white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="form-container">
-  <h2>Care-Pro CV Generator by Faizan</h2>
+  <h2>Care-Pro CV Generator — Fixed</h2>
   <input type="file" id="photoInput" accept="image/*">
   <input type="text" id="nameInput" placeholder="Full Name">
   <input type="text" id="iqamaInput" placeholder="Iqama Number">
@@ -49,7 +48,7 @@
 
 <div class="cv-container" id="cv" style="display:none;">
   <div class="header">
-    <img src="https://via.placeholder.com/120" class="photo" id="photo">
+    <img id="photo" class="photo" src="https://via.placeholder.com/120" alt="photo">
     <h1 id="name"></h1>
     <div class="contact">
       <div><b>Iqama No:</b> <span id="iqama"></span></div>
@@ -59,83 +58,175 @@
       <div><b>Present Job:</b> <span id="job"></span></div>
     </div>
   </div>
-  <h2>PROFESSIONAL SUMMARY</h2><p id="summary"></p>
-  <h2>EDUCATION</h2><ul id="education"></ul>
-  <h2>WORK EXPERIENCE</h2><ul id="experience"></ul>
-  <h2>SKILLS</h2><ul id="skills"></ul>
+
+  <h3>PROFESSIONAL SUMMARY</h3>
+  <p id="summary"></p>
+
+  <h3>EDUCATION</h3>
+  <ul id="education"></ul>
+
+  <h3>WORK EXPERIENCE</h3>
+  <ul id="experience"></ul>
+
+  <h3>SKILLS</h3>
+  <ul id="skills"></ul>
 </div>
 
-<button class="btn" id="downloadBtn" style="display:none;" onclick="downloadPDF()">Download & Upload</button>
+<div style="text-align:center;margin:14px;">
+  <button class="btn" id="downloadBtn" style="display:none;" onclick="downloadAndUpload()" >Download & Upload</button>
+</div>
 
 <script>
-  // === Firebase Config ===
-  const firebaseConfig = {
-    apiKey: "AIzaSyAhcU8StPFajp6P1qOa3Qe4avdlEPpueRQ",
-    authDomain: "carepro-cv.firebaseapp.com",
-    projectId: "carepro-cv",
-    storageBucket: "carepro-cv.appspot.com", // ✅ fixed bucket
-    messagingSenderId: "494275048602",
-    appId: "1:494275048602:web:19735a3d6d80ab6430db23"
-  };
+/* ---------- CONFIG: put your correct bucket here ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAhcU8StPFajp6P1qOa3Qe4avdlEPpueRQ",
+  authDomain: "carepro-cv.firebaseapp.com",
+  projectId: "carepro-cv",
+  storageBucket: "carepro-cv.appspot.com", // <-- MUST be *.appspot.com
+  messagingSenderId: "494275048602",
+  appId: "1:494275048602:web:19735a3d6d80ab6430db23"
+};
+/* --------------------------------------------------------- */
 
+try {
   firebase.initializeApp(firebaseConfig);
-  const storage = firebase.storage();
+  // quick sanity
+  if (!firebase.storage) console.error("firebase.storage not available");
+} catch (e) {
+  console.error("Firebase init error:", e);
+}
 
-  function generateCV() {
-    document.getElementById("cv").style.display = "block";
-    document.getElementById("downloadBtn").style.display = "inline-block";
+const storage = firebase.storage();
 
-    const photoFile = document.getElementById("photoInput").files[0];
-    if (photoFile) {
-      const reader = new FileReader();
-      reader.onload = e => document.getElementById("photo").src = e.target.result;
-      reader.readAsDataURL(photoFile);
-    }
+function generateCV() {
+  document.getElementById("cv").style.display = "block";
+  document.getElementById("downloadBtn").style.display = "inline-block";
 
-    document.getElementById("name").innerText = document.getElementById("nameInput").value;
-    document.getElementById("iqama").innerText = document.getElementById("iqamaInput").value;
-    document.getElementById("phone").innerText = document.getElementById("phoneInput").value;
-    document.getElementById("email").innerText = document.getElementById("emailInput").value;
-    document.getElementById("address").innerText = document.getElementById("addressInput").value;
-    document.getElementById("job").innerText = document.getElementById("jobInput").value;
-    document.getElementById("summary").innerText = document.getElementById("summaryInput").value;
-    document.getElementById("education").innerHTML = listify("educationInput");
-    document.getElementById("experience").innerHTML = listify("experienceInput");
-    document.getElementById("skills").innerHTML = listify("skillsInput");
+  // photo
+  const photoFile = document.getElementById("photoInput").files[0];
+  if (photoFile) {
+    const fr = new FileReader();
+    fr.onload = e => document.getElementById("photo").src = e.target.result;
+    fr.readAsDataURL(photoFile);
   }
 
-  function listify(id) {
-    return document.getElementById(id).value
-      .split("\n")
-      .filter(e => e.trim() !== "")
-      .map(e => `<li>${e.trim()}</li>`)
-      .join("");
-  }
+  // basic info
+  document.getElementById("name").innerText = document.getElementById("nameInput").value || "";
+  document.getElementById("iqama").innerText = document.getElementById("iqamaInput").value || "";
+  document.getElementById("phone").innerText = document.getElementById("phoneInput").value || "";
+  document.getElementById("email").innerText = document.getElementById("emailInput").value || "";
+  document.getElementById("address").innerText = document.getElementById("addressInput").value || "";
+  document.getElementById("job").innerText = document.getElementById("jobInput").value || "";
+  document.getElementById("summary").innerText = document.getElementById("summaryInput").value || "";
 
-  async function downloadPDF() {
-    const { jsPDF } = window.jspdf;
-    const cv = document.getElementById("cv");
-    const iqama = document.getElementById("iqama").innerText.trim() || "CV";
+  document.getElementById("education").innerHTML = listify("educationInput");
+  document.getElementById("experience").innerHTML = listify("experienceInput");
+  document.getElementById("skills").innerHTML = listify("skillsInput");
+}
 
-    const canvas = await html2canvas(cv, { scale: 2 });
+function listify(id) {
+  return document.getElementById(id).value
+    .split("\n")
+    .filter(x => x.trim() !== "")
+    .map(x => `<li>${escapeHtml(x.trim())}</li>`).join("");
+}
+
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
+
+/* Main function: produce PDF, trigger download, then upload to Firebase */
+async function downloadAndUpload() {
+  const downloadBtn = document.getElementById("downloadBtn");
+  downloadBtn.disabled = true;
+  downloadBtn.innerText = "Processing...";
+
+  try {
+    const iqama = (document.getElementById("iqama").innerText || "").trim() || "CV";
+    const cvEl = document.getElementById("cv");
+
+    // small wait to let browser render images
+    await new Promise(r => setTimeout(r, 250));
+
+    // render canvas
+    const canvas = await html2canvas(cvEl, { scale: 2, useCORS: true, allowTaint: true });
     const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
+
+    // create PDF using UMD jsPDF
+    const pdf = new window.jspdf.jsPDF("p", "mm", "a4");
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
     pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
 
+    // get blob
     const pdfBlob = pdf.output("blob");
 
-    // Save locally
-    pdf.save(iqama + ".pdf");
+    // --- Trigger download (works reliably) ---
+    const filename = sanitizeFilename(iqama) + ".pdf";
+    triggerBrowserDownload(pdfBlob, filename);
+    console.log("Local download triggered:", filename);
 
-    // Upload to Firebase Storage
-    const storageRef = storage.ref("cv/" + iqama + ".pdf");
-    await storageRef.put(pdfBlob);
+    // --- Upload to Firebase Storage ---
+    // check storage available
+    if (!storage) {
+      console.warn("Firebase storage not initialized. Skipping upload.");
+      alert("Downloaded locally as " + filename + ". (Upload skipped)");
+      downloadBtn.disabled = false;
+      downloadBtn.innerText = "Download & Upload";
+      return;
+    }
 
-    alert("✅ CV uploaded successfully for Iqama: " + iqama);
+    // upload path: cv/{iqama}.pdf
+    const path = "cv/" + sanitizeFilename(iqama) + ".pdf";
+    const storageRef = storage.ref().child(path);
+
+    // Start upload
+    const putTask = storageRef.put(pdfBlob);
+    putTask.on('state_changed',
+      snapshot => {
+        // optional: progress
+        const pct = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log("Upload progress:", Math.round(pct) + "%");
+        downloadBtn.innerText = "Uploading... " + Math.round(pct) + "%";
+      },
+      err => {
+        console.error("Upload failed:", err);
+        alert("Upload failed: " + (err.message || err));
+        downloadBtn.disabled = false;
+        downloadBtn.innerText = "Download & Upload";
+      },
+      async () => {
+        // completed
+        const url = await storageRef.getDownloadURL();
+        console.log("Upload complete. Download URL:", url);
+        alert("✅ CV uploaded for " + iqama + "\nYou can view it at the storage console or via URL in console.");
+        downloadBtn.disabled = false;
+        downloadBtn.innerText = "Download & Upload";
+      }
+    );
+  } catch (err) {
+    console.error("Error in downloadAndUpload:", err);
+    alert("Error: " + (err.message || err));
+    document.getElementById("downloadBtn").disabled = false;
+    document.getElementById("downloadBtn").innerText = "Download & Upload";
   }
-</script>
+}
 
+/* Helpers */
+function triggerBrowserDownload(blob, filename){
+  // Create anchor and click it
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // release
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+
+function sanitizeFilename(name){
+  return name.replace(/[^a-z0-9_\-\.]/gi, '_');
+}
+</script>
 </body>
 </html>
